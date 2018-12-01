@@ -1,0 +1,6 @@
+framework module Pods_finance_planer {
+  umbrella header "Pods-finance_planer-umbrella.h"
+
+  export *
+  module * { export * }
+}
