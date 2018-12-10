@@ -9,11 +9,12 @@
 import UIKit
 
 class OutcomeViewController: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource {
-
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+    
     @IBOutlet weak var sumTextField: UITextField!
-    
     @IBOutlet weak var sumDatePicker: UIDatePicker!
-    
     @IBOutlet weak var typesPickerView: UIPickerView!
     
     var pickerData = [String]()
@@ -23,12 +24,10 @@ class OutcomeViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
         
-        let color = UIColor.redColor()
+        let color = UIColor.red
         sumTextField.layer.borderWidth = 1.0
-        sumTextField.layer.borderColor = color.CGColor
+        sumTextField.layer.borderColor = color.cgColor
         
         self.allTypes()
         
@@ -38,21 +37,13 @@ class OutcomeViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
     
-    // The number of columns of data
-    func numberOfComponentsInPickerView(pickerView: UIPickerView) -> Int {
-        return 1
-    }
-    
-    // The number of rows of data
-    func pickerView(pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
         return pickerData.count
     }
     
-    // The data to return for the row and component (column) that's being passed in
-    func pickerView(pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+    public func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
         return pickerData[row]
     }
     
@@ -60,67 +51,56 @@ class OutcomeViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     func allTypes() -> Void {
         var types = NSArray()
         
-        
         let urlPath: String = "http://localhost:8000/outcometypes/"
         let url: NSURL = NSURL(string: urlPath)!
-        let request1: NSURLRequest = NSURLRequest(URL: url)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?>=nil
-        do{
-            
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
-            
+        let request1: NSURLRequest = NSURLRequest(url: url as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>?=nil
+        do {
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             do {
-                // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
-                
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSArray {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSArray {
                     print("Synchronous \(jsonResult)")
                     types = jsonResult
                     for var item in jsonResult {
-                        if let type_name = item["type"] {
-                            print(type_name!)
-                            pickerData.append(String(type_name!))
+                        var currentItem = item as! NSDictionary
+                        if let type_name = currentItem["type"] {
+                            print(type_name)
+                            pickerData.append(type_name as! String)
                         }
                     }
                 }
             } catch let error as NSError {
                 print(error.localizedDescription)
             }
-            
-            
-            
-        }catch let error as NSError
-        {
+        } catch let error as NSError {
             print(error.localizedDescription)
         }
     }
     
-    // Catpure the picker view selection
     func pickerView(pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
-        // This method is triggered whenever the user makes a change to the picker selection.
-        // The parameter named row and component represents what was selected.
         selectedType = row + 1
     }
     
-    func post(params : Dictionary<String, String>, url : String, postCompleted : (succeeded: Bool, msg: String) -> ()) {
-        var request = NSMutableURLRequest(URL: NSURL(string: url)!)
-        var session = NSURLSession.sharedSession()
+    func post(params : Dictionary<String, String>, url : String, postCompleted : @escaping (_ succeeded: Bool, _ msg: String) -> ()) {
+        var request = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let session = URLSession.shared
         
-        request.HTTPMethod = "POST"
+        request.httpMethod = "POST"
         
         var err: NSError?
         do {
-            request.HTTPBody = try NSJSONSerialization.dataWithJSONObject(params, options: [])
+            request.httpBody = try JSONSerialization.data(withJSONObject: params, options: [])
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("application/json", forHTTPHeaderField: "Accept")
             
-            var task = session.dataTaskWithRequest(request, completionHandler: {data, response, error -> Void in
+            var task = session.dataTask(with: request as URLRequest, completionHandler: {data, response, error -> Void in
                 print("Response: \(response)")
-                var strData = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                var strData = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                 print("Body: \(strData)")
                 do {
-                    if let jsonResult = try NSJSONSerialization.JSONObjectWithData(data!, options: []) as? NSDictionary {
+                    if let jsonResult = try JSONSerialization.jsonObject(with: data!, options: []) as? NSDictionary {
                         print("POST result \(jsonResult)")
-                        postCompleted(succeeded: true, msg: token)
+                        postCompleted(true, token)
                     }
                 } catch let error as NSError {
                     print(error.localizedDescription)
@@ -133,30 +113,15 @@ class OutcomeViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         }
     }
 
-    
-    
-    @IBAction func outcomeSubmitEvent(sender: UIButton) {
+    @IBAction func outcomeSubmitEvent(_ sender: UIButton) {
         var amount = sumTextField.text!
         
-        var dateFormatter = NSDateFormatter()
+        var dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
-        var selectedDate = dateFormatter.stringFromDate(sumDatePicker.date)
+        var selectedDate = dateFormatter.string(from: sumDatePicker.date)
         
-        self.post(["type":String(selectedType),"user":token,"date":selectedDate,"amount":amount], url: "http://localhost:8000/outcomes/") { (succeeded: Bool, msg: String) -> () in
+        self.post(params: ["type":String(selectedType),"user":token,"date":selectedDate,"amount":amount], url: "http://localhost:8000/outcomes/") { (succeeded: Bool, msg: String) -> () in
             print(msg)
         }
     }
-    
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }

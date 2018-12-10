@@ -17,68 +17,55 @@ class RegistrationViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Do any additional setup after loading the view.
-        let color = UIColor.redColor()
+        let color = UIColor.red
         UsernameTextField.layer.borderWidth = 1.0
         PasswordTextField.layer.borderWidth = 1.0
-        UsernameTextField.layer.borderColor = color.CGColor
-        PasswordTextField.layer.borderColor = color.CGColor
-        
-        
+        UsernameTextField.layer.borderColor = color.cgColor
+        PasswordTextField.layer.borderColor = color.cgColor
     }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
     
-    
-    
-    func post(params : Dictionary<String, String>, url : String, postCompleted : (succeeded: Bool, msg: String) -> ()) {
-        var request = NSMutableURLRequest(URL: NSURL(string: url)!)
-        var session = NSURLSession.sharedSession()
+    func post(params : Dictionary<String, String>, url : String, postCompleted : @escaping (_ succeeded: Bool, _ msg: String) -> ()) {
+        var request = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let session = URLSession.shared
         
-        request.HTTPMethod = "POST"
+        request.httpMethod = "POST"
         
         var err: NSError?
         do {
-            request.HTTPBody = try NSJSONSerialization.dataWithJSONObject(params, options: [])
+            request.httpBody = try JSONSerialization.data(withJSONObject: params, options: [])
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("application/json", forHTTPHeaderField: "Accept")
             
-            var task = session.dataTaskWithRequest(request, completionHandler: {data, response, error -> Void in
+            var task = session.dataTask(with: request as URLRequest, completionHandler: {data, response, error -> Void in
                 print("Response: \(response)")
-                var strData = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                let strData = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                 print("Body: \(strData)")
                 var err: NSError?
                 do {
-                    var json = try NSJSONSerialization.JSONObjectWithData(data!, options: .MutableLeaves) as? NSDictionary
+                    var json = try JSONSerialization.jsonObject(with: data!, options: .mutableLeaves) as? NSDictionary
                     
                     var msg = "No message"
                     
-                    // Did the JSONObjectWithData constructor return an error? If so, log the error to the console
-                    if(err != nil) {
+                    if err != nil {
                         print(err!.localizedDescription)
-                        let jsonStr = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                        let jsonStr = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                         print("Error could not parse JSON: '\(jsonStr)'")
-                        postCompleted(succeeded: false, msg: "Error")
-                    }
-                    else {
-                        // The JSONObjectWithData constructor didn't return an error. But, we should still
-                        // check and make sure that json has a value using optional binding.
+                        postCompleted(false, "Error")
+                    } else {
                         if let parseJSON = json {
-                            // Okay, the parsedJSON is here, let's get the value for 'success' out of it
                             if let success = parseJSON["success"] as? Bool {
-                                print("Succes: \(success)")
-                                postCompleted(succeeded: success, msg: "Logged in.")
+                                print("Success: \(success)")
+                                postCompleted(success, "Logged in.")
                             }
                             return
-                        }
-                        else {
-                            // Woa, okay the json object was nil, something went worng. Maybe the server isn't running?
-                            let jsonStr = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                        } else {
+                            let jsonStr = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                             print("Error could not parse JSON: \(jsonStr)")
-                            postCompleted(succeeded: false, msg: "Error")
+                            postCompleted(false, "Error")
                         }
                     }
                 } catch let error as NSError {
@@ -91,19 +78,14 @@ class RegistrationViewController: UIViewController {
             print(error.localizedDescription)
         }
     }
-
     
-    
-    
-    
-    
-    @IBAction func signUpEvent(sender: UIButton) {
-        var username = UsernameTextField.text
-        var password = PasswordTextField.text
+    @IBAction func signUpEvent(_ sender: UIButton) {
+        let username = UsernameTextField.text
+        let password = PasswordTextField.text
         print("sign_up" + username! + password!)
         
         if username != nil && password != nil{
-            self.post(["username":username!,"password":password!], url: "http://localhost:8000/users/") { (succeeded: Bool, msg: String) -> () in
+            self.post(params: ["username":username!,"password":password!], url: "http://localhost:8000/users/") { (succeeded: Bool, msg: String) -> () in
                 self.UsernameTextField.text = ""
                 self.PasswordTextField.text = ""
                 if succeeded {
@@ -112,16 +94,4 @@ class RegistrationViewController: UIViewController {
             }
         }
     }
-    
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
