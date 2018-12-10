@@ -19,27 +19,30 @@ class PieChartViewController: UIViewController {
 
         // Do any additional setup after loading the view.
         let chartData = getGroupedByTypeOutcomes(from: currentGroup)
-        fillChart(chartData)
+        fillChart(groupedOutcomes: chartData)
     }
-    @IBAction func yearOutcomesEvent(sender: UIButton) {
-        if currentGroup != .Year {
-            currentGroup = .Year
-            let chartData = getGroupedByTypeOutcomes(from: currentGroup)
-            fillChart(chartData)
-        }
-    }
-    @IBAction func monthOutcomesEvent(sender: UIButton) {
-        if currentGroup != .Month {
-            currentGroup = .Month
-            let chartData = getGroupedByTypeOutcomes(from: currentGroup)
-            fillChart(chartData)
-        }
-    }
-    @IBAction func dayOutcomesEvent(sender: UIButton) {
+    
+    @IBAction func dayClick(_ sender: Any) {
         if currentGroup != .Day {
             currentGroup = .Day
             let chartData = getGroupedByTypeOutcomes(from: currentGroup)
-            fillChart(chartData)
+            fillChart(groupedOutcomes: chartData)
+        }
+    }
+    
+    @IBAction func monthClick(_ sender: Any) {
+        if currentGroup != .Month {
+            currentGroup = .Month
+            let chartData = getGroupedByTypeOutcomes(from: currentGroup)
+            fillChart(groupedOutcomes: chartData)
+        }
+    }
+    
+    @IBAction func yearClick(_ sender: Any) {
+        if currentGroup != .Year {
+            currentGroup = .Year
+            let chartData = getGroupedByTypeOutcomes(from: currentGroup)
+            fillChart(groupedOutcomes: chartData)
         }
     }
 
@@ -51,38 +54,38 @@ class PieChartViewController: UIViewController {
     func getGroupedByTypeOutcomes(from timeSpan: OutcomesGroup) -> [String:Double] {
         var result = [String:Double]()
         var url = "http://localhost:8000/outcomes/\(token)/"
-        let request1: NSMutableURLRequest = NSMutableURLRequest(URL: NSURL(string: url)!)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?> = nil
+        let request1: NSMutableURLRequest = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>? = nil
         
         let now = NSDate()
-        let dateFormatYearMonthDay = NSDateFormatter()
+        let dateFormatYearMonthDay = DateFormatter()
         dateFormatYearMonthDay.dateFormat = "yyyy-MM-dd"
-        let dateFormatYearMonth = NSDateFormatter()
+        let dateFormatYearMonth = DateFormatter()
         dateFormatYearMonth.dateFormat = "yyyy-MM"
-        let dateFormatYear = NSDateFormatter()
+        let dateFormatYear = DateFormatter()
         dateFormatYear.dateFormat = "yy"
         
-        let currentYearMonthDay = dateFormatYearMonthDay.stringFromDate(now)
-        let currentYearMonth = dateFormatYearMonth.stringFromDate(now)
-        let currentYear = dateFormatYear.stringFromDate(now)
+        let currentYearMonthDay = dateFormatYearMonthDay.string(from: now as Date)
+        let currentYearMonth = dateFormatYearMonth.string(from: now as Date)
+        let currentYear = dateFormatYear.string(from: now as Date)
         
         do{
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             
             do {
                 // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
                 
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSArray {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSArray {
                     print("Synchronous \(jsonResult)")
                     for var item in jsonResult {
-                        if let amount = item["amount"], let date = item["date"], let type = item["type"] {
-                            
-                            let dateFormatter = NSDateFormatter()
+                        var currentItem = item as! NSDictionary
+                        if let amount = currentItem["amount"], let date = currentItem["date"], let type = currentItem["type"] {
+                            let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "yyyy-MM-dd"
-                            let datedate = dateFormatter.dateFromString(date as! String)
+                            let datedate = dateFormatter.date(from: date as! String)
                             switch timeSpan {
                                 case .Day:
-                                    let current = dateFormatYearMonthDay.stringFromDate(datedate!)
+                                    let current = dateFormatYearMonthDay.string(from: datedate!)
                                     if current == currentYearMonthDay {
                                         let currentType = type as! String
                                         if let currentAmount = result[currentType] {
@@ -92,7 +95,7 @@ class PieChartViewController: UIViewController {
                                         }
                                     }
                                 case .Month:
-                                    let current = dateFormatYearMonth.stringFromDate(datedate!)
+                                    let current = dateFormatYearMonth.string(from: datedate!)
                                     if current == currentYearMonth {
                                         let currentType = type as! String
                                         if let currentAmount = result[currentType] {
@@ -102,7 +105,7 @@ class PieChartViewController: UIViewController {
                                         }
                                     }
                                 case .Year:
-                                    let current = dateFormatYear.stringFromDate(datedate!)
+                                    let current = dateFormatYear.string(from: datedate!)
                                     if current == currentYear {
                                         let currentType = type as! String
                                         if let currentAmount = result[currentType] {
@@ -124,34 +127,23 @@ class PieChartViewController: UIViewController {
         return result
     }
     
-    func fillChart(chartData: [String:Double]) {
+    func fillChart(groupedOutcomes: [String:Double]) {
         var dataEntries = [ChartDataEntry]()
-        let sum = [Double](chartData.values).reduce(0, combine: +)
+        let sum = [Double](groupedOutcomes.values).reduce(0, +)
         var i = 0
-        for (_, val) in chartData {
+        for (_, val) in groupedOutcomes {
             let percent = Double(val) / sum
-            let entry = ChartDataEntry(value: percent, xIndex: i)
+            let entry = ChartDataEntry(x: Double(i), y: percent)
             i = i + 1
             dataEntries.append(entry)
         }
-        let chartDataSet = PieChartDataSet(yVals: dataEntries, label: "")
+        let chartDataSet = PieChartDataSet(values: dataEntries, label: "")
         chartDataSet.colors = ChartColorTemplates.colorful()
         chartDataSet.sliceSpace = 2
         chartDataSet.selectionShift = 5
         
-        let chartData = PieChartData(xVals: [String](chartData.keys), dataSet: chartDataSet)
+        let chartData = PieChartData(dataSet: chartDataSet)
         
         pieChartView.data = chartData
     }
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }

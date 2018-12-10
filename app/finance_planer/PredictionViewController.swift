@@ -43,7 +43,7 @@ class PredictionViewController: UIViewController {
         }
         
         outcomesValueLabel.text = String(format: "%.2f", sum)
-        fillChart(threeMonthOutcomes)
+        fillChart(chartData: threeMonthOutcomes)
     }
 
     override func didReceiveMemoryWarning() {
@@ -54,28 +54,29 @@ class PredictionViewController: UIViewController {
     func getGroupedByTypeOutcomes(from month: String) -> [String:Double] {
         var result = [String:Double]()
         var url = "http://localhost:8000/outcomes/\(token)/"
-        let request1: NSMutableURLRequest = NSMutableURLRequest(URL: NSURL(string: url)!)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?> = nil
+        let request1: NSMutableURLRequest = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>? = nil
         
-        let dateFormatYearMonth = NSDateFormatter()
+        let dateFormatYearMonth = DateFormatter()
         dateFormatYearMonth.dateFormat = "yyyy-MM"
         
         do{
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             
             do {
                 // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
                 
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSArray {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSArray {
                     print("Synchronous \(jsonResult)")
                     for var item in jsonResult {
-                        if let amount = item["amount"], let date = item["date"], let type = item["type"] {
+                        var currentItem = item as! NSDictionary
+                        if let amount = currentItem["amount"], let date = currentItem["date"], let type = currentItem["type"] {
                             
-                            let dateFormatter = NSDateFormatter()
+                            let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "yyyy-MM-dd"
-                            let datedate = dateFormatter.dateFromString(date as! String)
+                            let datedate = dateFormatter.date(from: date as! String)
                             
-                            let current = dateFormatYearMonth.stringFromDate(datedate!)
+                            let current = dateFormatYearMonth.string(from: datedate!)
                             if current == month {
                                 let currentType = type as! String
                                 if let currentAmount = result[currentType] {
@@ -98,44 +99,32 @@ class PredictionViewController: UIViewController {
     
     func fillChart(chartData: [String:Double]) {
         var dataEntries = [ChartDataEntry]()
-        let sum = [Double](chartData.values).reduce(0, combine: +)
+        let sum = [Double](chartData.values).reduce(0, +)
         var i = 0
         for (_, val) in chartData {
             let percent = Double(val) / sum
-            let entry = ChartDataEntry(value: percent, xIndex: i)
+            let entry = ChartDataEntry(x: percent, y: Double(i))
             i = i + 1
             dataEntries.append(entry)
         }
-        let chartDataSet = PieChartDataSet(yVals: dataEntries, label: "")
+        let chartDataSet = PieChartDataSet(values: dataEntries, label: "")
         chartDataSet.colors = ChartColorTemplates.colorful()
         chartDataSet.sliceSpace = 2
         chartDataSet.selectionShift = 5
         
-        let chartData = PieChartData(xVals: [String](chartData.keys), dataSet: chartDataSet)
+        let chartData = PieChartData(dataSet: chartDataSet)
         
         pieChartView.data = chartData
     }
     
     func getPrevMonths() -> [String] {
-        let now = NSDate()
-        let monthAgo = NSCalendar.currentCalendar().dateByAddingUnit(.Month, value: -1, toDate: NSDate(), options: [])
-        let twoMonthsAgo = NSCalendar.currentCalendar().dateByAddingUnit(.Month, value: -2, toDate: NSDate(), options: [])
+        let now = Date()
+        let monthAgo = NSCalendar.current.date(byAdding: .month, value: -1, to: Date())
+        let twoMonthsAgo = NSCalendar.current.date(byAdding: .month, value: -2, to: Date())
         
-        let dateFormatYearMonth = NSDateFormatter()
+        let dateFormatYearMonth = DateFormatter()
         dateFormatYearMonth.dateFormat = "yyyy-MM"
         
-        return [dateFormatYearMonth.stringFromDate(twoMonthsAgo!), dateFormatYearMonth.stringFromDate(monthAgo!), dateFormatYearMonth.stringFromDate(now)]
+        return [dateFormatYearMonth.string(from: twoMonthsAgo!), dateFormatYearMonth.string(from: monthAgo!), dateFormatYearMonth.string(from: now)]
     }
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
