@@ -12,38 +12,28 @@ class ProfileViewController: UIViewController {
     
     @IBOutlet weak var currentMonthOutcomes: UILabel!
     @IBOutlet weak var progressOutcomes: UIProgressView!
-    
     @IBOutlet weak var progressBarLimit: UILabel!
-    
     @IBOutlet weak var limitTextField: UITextField!
     
     var getLimit: String = ""
     
-    func get(url : String, postCompleted : (succeeded: Bool, msg: String) -> ()) -> Double {
+    func get(url : String, postCompleted : (_ succeeded: Bool, _ msg: String) -> ()) -> Double {
         var result = 0.0
-        let request1: NSMutableURLRequest = NSMutableURLRequest(URL: NSURL(string: url)!)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?>=nil
-        
-        do{
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
-            
+        let request1: NSMutableURLRequest = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>?=nil
+        do {
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             do {
-                // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
-                
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSDictionary {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSDictionary {
                     print("Synchronous \(jsonResult)")
                     if let limitValue = jsonResult["limit"] {
-                        result = Double(limitValue as! NSNumber)
+                        result = Double(truncating: limitValue as! NSNumber)
                     }
                 }
             } catch let error as NSError {
                 print(error.localizedDescription)
             }
-            
-            
-            
-        }catch let error as NSError
-        {
+        } catch let error as NSError {
             print(error.localizedDescription)
         }
         return result
@@ -51,28 +41,25 @@ class ProfileViewController: UIViewController {
     
     func getCurrentMonthOutcomes(url : String) -> Double {
         var result = 0.0
-        let request1: NSMutableURLRequest = NSMutableURLRequest(URL: NSURL(string: url)!)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?>=nil
+        let request1: NSMutableURLRequest = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>?=nil
         let now = NSDate()
-        let dateFormatMonth = NSDateFormatter()
+        let dateFormatMonth = DateFormatter()
         dateFormatMonth.dateFormat = "MM"
-        let currentMonth = dateFormatMonth.stringFromDate(now)
-        print(currentMonth)
+        let currentMonth = dateFormatMonth.string(from: now as Date)
         
-        do{
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
-            
+        do {
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             do {
-                // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
-                
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSArray {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSArray {
                     print("Synchronous \(jsonResult)")
                     for var item in jsonResult {
-                        if let amount = item["amount"], let date = item["date"] {
-                            let dateFormatter = NSDateFormatter()
+                        var currentItem = item as! NSDictionary
+                        if let amount = currentItem["amount"], let date = currentItem["date"] {
+                            let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "yyyy-MM-dd"
-                            let datedate = dateFormatter.dateFromString(date as! String)
-                            let dateMonth = dateFormatMonth.stringFromDate(datedate!)
+                            let datedate = dateFormatter.date(from: date as! String)
+                            let dateMonth = dateFormatMonth.string(from: datedate!)
                             if dateMonth == currentMonth {
                                 result += Double(amount as! NSNumber)
                             }
@@ -82,66 +69,55 @@ class ProfileViewController: UIViewController {
             } catch let error as NSError {
                 print(error.localizedDescription)
             }
-            
-            
-            
-        }catch let error as NSError
-        {
+        } catch let error as NSError {
             print(error.localizedDescription)
         }
         return result
     }
 
     
-    func post(params : Dictionary<String, String>, url : String, postCompleted : (succeeded: Bool, msg: String) -> ()) {
-        var request = NSMutableURLRequest(URL: NSURL(string: url)!)
-        var session = NSURLSession.sharedSession()
+    func post(params : Dictionary<String, String>, url : String, postCompleted : @escaping (_ succeded: Bool, _ msg: String) -> ()) {
+        var request = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let session = URLSession.shared
         
-        request.HTTPMethod = "POST"
+        request.httpMethod = "POST"
         if getLimit != "0.0" && getLimit != limitTextField.text {
-            request.HTTPMethod = "PUT"
+            request.httpMethod = "PUT"
         }
         
         var err: NSError?
         do {
-            request.HTTPBody = try NSJSONSerialization.dataWithJSONObject(params, options: [])
+            request.httpBody = try JSONSerialization.data(withJSONObject: params, options: [])
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("application/json", forHTTPHeaderField: "Accept")
             
-            var task = session.dataTaskWithRequest(request, completionHandler: {data, response, error -> Void in
+            var task = session.dataTask(with: request as URLRequest, completionHandler: {data, response, error -> Void in
                 self.getLimit = self.limitTextField.text!
                 print("Response: \(response)")
-                var strData = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                var strData = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                 print("Body: \(strData)")
                 var err: NSError?
                 do {
-                    var json = try NSJSONSerialization.JSONObjectWithData(data!, options: .MutableLeaves) as? NSDictionary
+                    var json = try JSONSerialization.jsonObject(with: data!, options: .mutableLeaves) as? NSDictionary
                     
                     var msg = "No message"
                     
-                    // Did the JSONObjectWithData constructor return an error? If so, log the error to the console
-                    if(err != nil) {
+                    if (err != nil) {
                         print(err!.localizedDescription)
-                        let jsonStr = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                        let jsonStr = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                         print("Error could not parse JSON: '\(jsonStr)'")
-                        postCompleted(succeeded: false, msg: "Error")
-                    }
-                    else {
-                        // The JSONObjectWithData constructor didn't return an error. But, we should still
-                        // check and make sure that json has a value using optional binding.
+                        postCompleted(false, "Error")
+                    } else {
                         if let parseJSON = json {
-                            // Okay, the parsedJSON is here, let's get the value for 'success' out of it
                             if let success = parseJSON["success"] as? Bool {
                                 print("Succes: \(success)")
-                                postCompleted(succeeded: success, msg: "Logged in.")
+                                postCompleted(success, "Logged in.")
                             }
                             return
-                        }
-                        else {
-                            // Woa, okay the json object was nil, something went worng. Maybe the server isn't running?
-                            let jsonStr = NSString(data: data!, encoding: NSUTF8StringEncoding)
+                        } else {
+                            let jsonStr = NSString(data: data!, encoding: String.Encoding.utf8.rawValue)
                             print("Error could not parse JSON: \(jsonStr)")
-                            postCompleted(succeeded: false, msg: "Error")
+                            postCompleted(false, "Error")
                         }
                     }
                 } catch let error as NSError {
@@ -155,38 +131,30 @@ class ProfileViewController: UIViewController {
         }
     }
 
-    @IBAction func editLimitEvent(sender: UIButton) {
+    @IBAction func editLimitEvent(_ sender: UIButton) {
         if let limit = limitTextField.text {
-            self.post(["user":token,"limit":limit], url: "http://localhost:8000/accounts/") { (succeeded: Bool, msg: String) -> () in
+            self.post(params: ["user":token,"limit":limit], url: "http://localhost:8000/accounts/") { (succeeded: Bool, msg: String) -> () in
                 print(msg)
                 self.progressBarLimit.text = self.limitTextField.text
             }
-            /*
-            self.get(url: "http://localhost:8000/accounts/de5204a286004f7304af08b0e40abc7f45fd6517/") { (succeeded: Bool, msg: String) -> () in
-                print(msg)
-            }
-*/
         }
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let color = UIColor.redColor()
+        let color = UIColor.red
         limitTextField.layer.borderWidth = 1.0
-        limitTextField.layer.borderColor = color.CGColor
+        limitTextField.layer.borderColor = color.cgColor
         
-        
-
-        // Do any additional setup after loading the view.
         if token == "" {
             sleep(1)
         }
         if token != "" {
-            var limit = self.get("http://localhost:8000/accounts/\(token)/") { (succeeded: Bool, msg: String) -> () in
+            let limit = self.get(url: "http://localhost:8000/accounts/\(token)/") { (succeeded: Bool, msg: String) -> () in
                 print(msg)
             }
-            var outcomes = self.getCurrentMonthOutcomes("http://localhost:8000/outcomes/\(token)/")
+            let outcomes = self.getCurrentMonthOutcomes(url: "http://localhost:8000/outcomes/\(token)/")
             currentMonthOutcomes.text = String(outcomes)
             progressOutcomes.progress = Float(outcomes) / Float(limit)
             limitTextField.text = String(limit)
@@ -201,19 +169,5 @@ class ProfileViewController: UIViewController {
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        
-        // Dispose of any resources that can be recreated.
     }
-    
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }

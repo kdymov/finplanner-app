@@ -26,12 +26,13 @@ class StatisticViewController: UIViewController {
 
         // Do any additional setup after loading the view.
         let chartData = getGroupedOutcomes(by: currentGroup)
-        xAxis = [String](chartData.keys).sort(<)
+        var xAxis = [String](chartData.keys)
+        xAxis.sort(by: <)
         var yAxis = [Double]()
         for item in xAxis {
             yAxis.append(chartData[item]!)
         }
-        setChart(xAxis, values: yAxis)
+        setChart(dataPoints: xAxis, values: yAxis)
     }
 
     override func didReceiveMemoryWarning() {
@@ -42,41 +43,42 @@ class StatisticViewController: UIViewController {
     func getGroupedOutcomes(by groupingItem: OutcomesGroup) -> [String:Double] {
         var result = [String:Double]()
         var url = "http://localhost:8000/outcomes/\(token)/"
-        let request1: NSMutableURLRequest = NSMutableURLRequest(URL: NSURL(string: url)!)
-        let response: AutoreleasingUnsafeMutablePointer<NSURLResponse?> = nil
+        let request1: NSMutableURLRequest = NSMutableURLRequest(url: NSURL(string: url)! as URL)
+        let response: AutoreleasingUnsafeMutablePointer<URLResponse?>? = nil
         
         let now = NSDate()
-        let dateFormatYearMonth = NSDateFormatter()
+        let dateFormatYearMonth = DateFormatter()
         dateFormatYearMonth.dateFormat = "yyyy-MM"
-        let dateFormatDay = NSDateFormatter()
+        let dateFormatDay = DateFormatter()
         dateFormatDay.dateFormat = "dd"
-        let dateFormatYear = NSDateFormatter()
+        let dateFormatYear = DateFormatter()
         dateFormatYear.dateFormat = "yyyy"
-        let dateFormatMonth = NSDateFormatter()
+        let dateFormatMonth = DateFormatter()
         dateFormatMonth.dateFormat = "MM"
 
-        let currentYearMonth = dateFormatYearMonth.stringFromDate(now)
-        let currentYear = dateFormatYear.stringFromDate(now)
+        let currentYearMonth = dateFormatYearMonth.string(from: now as Date)
+        let currentYear = dateFormatYear.string(from: now as Date)
         
-        do{
-            let dataVal = try NSURLConnection.sendSynchronousRequest(request1, returningResponse: response)
+        do {
+            let dataVal = try NSURLConnection.sendSynchronousRequest(request1 as URLRequest, returning: response)
             
             do {
                 // print(NSString(data: dataVal, encoding: NSUTF8StringEncoding))
                 
-                if let jsonResult = try NSJSONSerialization.JSONObjectWithData(dataVal, options: []) as? NSArray {
+                if let jsonResult = try JSONSerialization.jsonObject(with: dataVal, options: []) as? NSArray {
                     print("Synchronous \(jsonResult)")
                     for var item in jsonResult {
-                        if let amount = item["amount"], let date = item["date"] {
+                        var currentItem = item as! NSDictionary
+                        if let amount = currentItem["amount"], let date = currentItem["date"] {
                             
-                            let dateFormatter = NSDateFormatter()
+                            let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "yyyy-MM-dd"
-                            let datedate = dateFormatter.dateFromString(date as! String)
+                            let datedate = dateFormatter.date(from: date as! String)
                             switch groupingItem {
                                 case .Day:
-                                    let current = dateFormatYearMonth.stringFromDate(datedate!)
+                                    let current = dateFormatYearMonth.string(from: datedate!)
                                     if current == currentYearMonth {
-                                        let currentDay = dateFormatDay.stringFromDate(datedate!)
+                                        let currentDay = dateFormatDay.string(from: datedate!)
                                         if let currentAmount = result[currentDay] {
                                             result[currentDay] = currentAmount + (amount as! Double)
                                         } else {
@@ -84,9 +86,9 @@ class StatisticViewController: UIViewController {
                                         }
                                     }
                                 case .Month:
-                                    let current = dateFormatYear.stringFromDate(datedate!)
+                                    let current = dateFormatYear.string(from: datedate!)
                                     if current == currentYear {
-                                        let currentMonth = dateFormatMonth.stringFromDate(datedate!)
+                                        let currentMonth = dateFormatMonth.string(from: datedate!)
                                         if let currentAmount = result[currentMonth] {
                                             result[currentMonth] = currentAmount + (amount as! Double)
                                         } else {
@@ -94,7 +96,7 @@ class StatisticViewController: UIViewController {
                                         }
                                 }
                                 case .Year:
-                                    let currentYear = dateFormatYear.stringFromDate(datedate!)
+                                    let currentYear = dateFormatYear.string(from: datedate!)
                                     if let currentAmount = result[currentYear] {
                                         result[currentYear] = currentAmount + (amount as! Double)
                                     } else {
@@ -119,7 +121,7 @@ class StatisticViewController: UIViewController {
         var dataEntries: [BarChartDataEntry] = []
         
         for i in 0..<dataPoints.count {
-            let dataEntry = BarChartDataEntry(value: values[i], xIndex: i)
+            let dataEntry = BarChartDataEntry(x: Double(i), y: values[i])
             dataEntries.append(dataEntry)
         }
         
@@ -132,60 +134,54 @@ class StatisticViewController: UIViewController {
             chartLabel = "Year outcomes"
         }
         
-        let chartDataSet = BarChartDataSet(yVals: dataEntries, label: chartLabel)
-        let chartData = BarChartData(xVals: xAxis, dataSet: chartDataSet)
+        let chartDataSet = BarChartDataSet(values: dataEntries, label: chartLabel)
+        let chartData = BarChartData(dataSet: chartDataSet)
         barChartView.data = chartData
     }
-    @IBAction func DayOutcomesEvent(sender: UIButton) {
+    
+    @IBAction func DayClick(_ sender: Any) {
         if currentGroup != .Day {
             currentGroup = .Day
             
             let chartData = getGroupedOutcomes(by: currentGroup)
-            xAxis = [String](chartData.keys).sort(<)
+            var xAxis = [String](chartData.keys)
+            xAxis.sort(by: <)
             var yAxis = [Double]()
             for item in xAxis {
                 yAxis.append(chartData[item]!)
             }
-            setChart(xAxis, values: yAxis)
+            setChart(dataPoints: xAxis, values: yAxis)
         }
     }
     
-    @IBAction func MonthOutcomesEvent(sender: UIButton) {
+    @IBAction func MonthClick(_ sender: Any) {
         if currentGroup != .Month {
             currentGroup = .Month
             
             let chartData = getGroupedOutcomes(by: currentGroup)
-            xAxis = [String](chartData.keys).sort(<)
+            var xAxis = [String](chartData.keys)
+            xAxis.sort(by: <)
             var yAxis = [Double]()
             for item in xAxis {
                 yAxis.append(chartData[item]!)
             }
-            setChart(xAxis, values: yAxis)
+            setChart(dataPoints: xAxis, values: yAxis)
         }
     }
     
-    @IBAction func YearOutcomesEvent(sender: UIButton) {
+    @IBAction func YearClick(_ sender: Any) {
         if currentGroup != .Year {
             currentGroup = .Year
             
             let chartData = getGroupedOutcomes(by: currentGroup)
-            xAxis = [String](chartData.keys).sort(<)
+            var xAxis = [String](chartData.keys)
+            xAxis.sort(by: <)
             var yAxis = [Double]()
             for item in xAxis {
                 yAxis.append(chartData[item]!)
             }
-            setChart(xAxis, values: yAxis)
+            setChart(dataPoints: xAxis, values: yAxis)
         }
     }
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
 }
 
